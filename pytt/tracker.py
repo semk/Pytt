@@ -14,7 +14,7 @@ import tornado.web
 import tornado.httpserver
 from optparse import OptionParser
 from bencode import bencode, bdecode
-
+from utils import get_peer_list
 
 class TrackerStats(tornado.web.RequestHandler):
     """Shows the Tracker statistics on this page.
@@ -42,6 +42,20 @@ class AnnounceHandler(tornado.web.RequestHandler):
         key = self.get_argument('key')
         trackerid = self.get_argument('trackerid')
 
+        # generate response
+        response = {}
+        response['failure reason'] = ''
+        response['warning message'] = ''
+        response['interval'] = 5
+        response['min interval'] = 1
+        response['tracker id'] = tracker_id
+        response['complete'] = 0
+        response['incomplete'] = 0
+        response['peers'] = get_peer_list()
+
+        # send the bencoded response as text/plain document.
+        self.set_header('content-type', 'text/plain')
+        self.write(bencode(response))
 
 class ScrapeHandler(tornado.web.RequestHandler):
     """Returns the state of all torrents this tracker is managing.
