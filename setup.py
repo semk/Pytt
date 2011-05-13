@@ -10,8 +10,12 @@ from setuptools import setup, find_packages
 
 setup(
     name = "Pytt",
-    version = "0.1.1",
+    version = "0.1.5",
     packages = find_packages(),
+    install_requires = ['setuptools',
+                        'tornado-1.2.1',
+                        ],
+    extras_require = {'test': ['nose']},
 
     # metadata for upload to PyPI
     author = "Sreejith K",
