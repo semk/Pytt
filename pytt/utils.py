@@ -8,6 +8,8 @@
 
 
 import os
+import logging
+import logging.handlers
 import shelve
 import ConfigParser
 
@@ -17,13 +19,33 @@ DB_PATH = os.path.expanduser('~/.pytt/db/pytt.db')
 LOG_PATH = os.path.expanduser('~/.pytt/log/pytt.log')
 
 
+def setup_logging(debug=False):
+    """Setup application logging.
+    """
+    if debug:
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+    log_handler = logging.handlers.RotatingFileHandler(LOG_PATH,
+                                                      maxBytes=1024*1024,
+                                                      backupCount=2)
+    root_logger = logging.getLogger('')
+    root_logger.setLevel(level)
+    format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    formatter = logging.Formatter(format)
+    log_handler.setFormatter(formatter)
+    root_logger.addHandler(log_handler)
+
+
 def create_config(path):
     """Create default config file.
     """
-    config = ConfigParser.RawConfigParser(path)
-    config.set('port', 'int', '8080')
-    config.set('interval', 'int', '5')
-    config.set('min_interval', 'int', '1')
+    logging.info('creating default config at %s' %CONFIG_PATH)
+    config = ConfigParser.RawConfigParser()
+    config.add_section('tracker')
+    config.set('tracker', 'port', '8080')
+    config.set('tracker', 'interval', '5')
+    config.set('tracker', 'min_interval', '1')
     with open(path, 'wb') as f:
         config.write(f)
 
@@ -31,13 +53,19 @@ def create_config(path):
 def create_pytt_dirs():
     """Create directories to store config, log and db files.
     """
+    logging.info('setting up directories for Pytt')
     for path in [CONFIG_PATH, DB_PATH, LOG_PATH]:
         dirname = os.path.dirname(path)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
     # create the default config if its not there.
-    if os.path.exists(CONFIG_PATH):
+    if not os.path.exists(CONFIG_PATH):
         create_config(CONFIG_PATH)
+
+
+class ConfigError(Exception):
+    """Raised when config error occurs.
+    """
 
 
 class Config:
@@ -55,7 +83,8 @@ class Config:
         """
         if not hasattr(self, '__config'):
             self.__config = ConfigParser.RawConfigParser()
-            self.__config.read(CONFIG_PATH)
+            if self.__config.read(CONFIG_PATH) == []:
+                raise ConfigError('No config at %s' %CONFIG_PATH)
         return self.__config
 
     def close(self):
@@ -110,13 +139,13 @@ def close_db():
     Database().close()
 
 
-def get_numof_seeders():
+def get_numof_seeders(info_hash):
     """Number of peers with the entire file, aka "seeders".
     """
     return 0
 
 
-def get_numof_leechers():
+def get_numof_leechers(info_hash):
     """Number of non-seeder peers, aka "leechers".
     """
     return 0
@@ -126,15 +155,26 @@ def store_peer_info(info_hash, peer_id, ip, port):
     """Store the information about the peer.
     """
     db = get_db()
-    if info_hash in db:
+    if db.has_key(info_hash):
         if (peer_id, ip, port) not in db[info_hash]:
             db[info_hash].append((peer_id, ip, port))
     else:
         db[info_hash] = [(peer_id, ip, port)]
 
 
-def get_peer_list():
+def get_peer_list(info_hash):
     """Get all the peer's info with peer_id, ip and port.
     Eg: [{'peer_id':'#1223&&IJM', 'ip':'162.166.112.2', 'port': '7887'}, ...]
     """
-    return []
+    db = get_db()
+    if db.has_key(info_hash):
+        peers = []
+        for peer in db[info_hash]:
+            p = {}
+            p['peer_id'], p['ip'], p['port'] = peer
+            peers.append(p)
+        logging.debug('peers" %r' %peers)
+        return peers
+    else:
+        return []
+    

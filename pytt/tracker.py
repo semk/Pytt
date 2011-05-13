@@ -35,15 +35,15 @@ class AnnounceHandler(tornado.web.RequestHandler):
         peer_id = self.get_argument('peer_id')
         ip = self.get_argument('ip') or self.request.remote_ip
         port = self.get_argument('port')
-        uploaded = self.get_argument('uploaded')
-        downloaded = self.get_argument('downloaded')
-        left = self.get_argument('left')
-        compact = self.get_argument('compact')
-        no_peer_id = self.get_argument('no_peer_id')
-        event = self.get_argument('event')
-        numwant = self.get_argument('numwant')
-        key = self.get_argument('key')
-        trackerid = self.get_argument('trackerid')
+        uploaded = self.get_argument('uploaded', '')
+        downloaded = self.get_argument('downloaded', '')
+        left = self.get_argument('left', '')
+        compact = self.get_argument('compact', '')
+        no_peer_id = self.get_argument('no_peer_id', '')
+        event = self.get_argument('event', '')
+        numwant = self.get_argument('numwant', '')
+        key = self.get_argument('key', '')
+        tracker_id = self.get_argument('trackerid', '')
 
         # store the peer info
         store_peer_info(info_hash, peer_id, ip, port)
@@ -52,14 +52,14 @@ class AnnounceHandler(tornado.web.RequestHandler):
         response = {}
         # Interval in seconds that the client should wait between sending 
         #    regular requests to the tracker.
-        response['interval'] = get_config().get_int('interval')
-        # Minimum announce interval. If present clients must not reannounce 
+        response['interval'] = get_config().getint('tracker', 'interval')
+        # Minimum announce interval. If present clients must not re-announce 
         #    more frequently than this.
-        response['min interval'] = get_config().get_int('min_interval')
+        response['min interval'] = get_config().getint('tracker', 'min_interval')
         response['tracker id'] = tracker_id
-        response['complete'] = get_numof_seeders()
-        response['incomplete'] = get_numof_leechers()
-        response['peers'] = get_peer_list()
+        response['complete'] = get_numof_seeders(info_hash)
+        response['incomplete'] = get_numof_leechers(info_hash)
+        response['peers'] = get_peer_list(info_hash)
         if failure_reason:
             response['failure reason'] = failure_reason
         if warning_message:
@@ -68,6 +68,12 @@ class AnnounceHandler(tornado.web.RequestHandler):
         # send the bencoded response as text/plain document.
         self.set_header('content-type', 'text/plain')
         self.write(bencode(response))
+
+    def get_argument(self, arg, default=[], strip=True):
+        value = super(AnnounceHandler, self).get_argument(arg, default, strip)
+        if value != default:
+            return str(value)
+        return value
 
 
 class ScrapeHandler(tornado.web.RequestHandler):
@@ -81,8 +87,8 @@ def run_app(port):
     """Start Tornado IOLoop for this application.
     """
     tracker = tornado.web.Application([
-        (r"/announce", AnnounceHandler),
-        (r"/scrape", ScrapeHandler),
+        (r"/announce.*", AnnounceHandler),
+        (r"/scrape.*", ScrapeHandler),
         (r"/", TrackerStats),
     ])
     logging.info('Starting Pytt on port %d' %port)
@@ -105,16 +111,12 @@ def start_tracker():
 
     # setup directories
     create_pytt_dirs()
-
-    # set debug option
-    if options.debug:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
+    # setup logging
+    setup_logging(options.debug)
 
     try:
         # start the torrent tracker
-        run_app(int(options.port) or get_config().get_int('port'))
+        run_app(int(options.port) or get_config().getint('tracker', 'port'))
     except KeyboardInterrupt:
         logging.info('Tracker Stopped.')
         close_db()
