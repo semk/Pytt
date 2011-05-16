@@ -11,12 +11,22 @@ import os
 import logging
 import logging.handlers
 import shelve
+from socket import inet_aton
+from struct import pack
 import ConfigParser
 
 
 CONFIG_PATH = os.path.expanduser('~/.pytt/config/pytt.conf')
 DB_PATH = os.path.expanduser('~/.pytt/db/pytt.db')
 LOG_PATH = os.path.expanduser('~/.pytt/log/pytt.log')
+
+DEFAULT_ALLOWED_PEERS = 30
+MAX_ALLOWED_PEERS = 55
+
+# HTTP Error Codes
+MISSING_INFO_HASH = 101
+MISSING_PEER_ID = 102
+MISSING_PORT = 103
 
 
 def setup_logging(debug=False):
@@ -139,42 +149,65 @@ def close_db():
     Database().close()
 
 
-def get_numof_seeders(info_hash):
+def no_of_seeders(info_hash):
     """Number of peers with the entire file, aka "seeders".
     """
-    return 0
+    db = get_db()
+    count = 0
+    if db.has_key(info_hash):
+        for peer_info in db[info_hash].values():
+            if peer_info[3] == 'completed':
+                count += 1
+    return count
 
 
-def get_numof_leechers(info_hash):
+def no_of_leechers(info_hash):
     """Number of non-seeder peers, aka "leechers".
     """
-    return 0
+    db = get_db()
+    count = 0
+    if db.has_key(info_hash):
+        for peer_info in db[info_hash].values():
+            if peer_info[3] == 'started':
+                count += 1
+    return count
 
 
-def store_peer_info(info_hash, peer_id, ip, port):
+def store_peer_info(info_hash, peer_id, ip, port, status):
     """Store the information about the peer.
     """
     db = get_db()
     if db.has_key(info_hash):
-        if (peer_id, ip, port) not in db[info_hash]:
-            db[info_hash].append((peer_id, ip, port))
+        if (peer_id, ip, port, status) not in db[info_hash]:
+            db[info_hash].append((peer_id, ip, port, status))
     else:
-        db[info_hash] = [(peer_id, ip, port)]
+        db[info_hash] = [(peer_id, ip, port, status)]
 
 
-def get_peer_list(info_hash):
+def get_peer_list(info_hash, numwant, compact, no_peer_id):
     """Get all the peer's info with peer_id, ip and port.
     Eg: [{'peer_id':'#1223&&IJM', 'ip':'162.166.112.2', 'port': '7887'}, ...]
     """
     db = get_db()
-    if db.has_key(info_hash):
-        peers = []
-        for peer in db[info_hash]:
-            p = {}
-            p['peer_id'], p['ip'], p['port'] = peer
-            peers.append(p)
-        logging.debug('peers" %r' %peers)
-        return peers
+    if compact:
+        byteswant = numwant * 6
+        compact_peers = ""
+        # make a compact peer list
+        if db.has_key(info_hash):
+            for peer_info in db[info_hash]:
+                ip = inet_aton(peer_info[1])
+                port = pack('>H', int(peer_info[2]))
+                compact_peers += (ip+port)
+        logging.debug('compact peer list: %r' %compact_peers[:byteswant])
+        return compact_peers[:byteswant]
     else:
-        return []
+        peers = []
+        if db.has_key(info_hash):
+            for peer_info in db[info_hash]:
+                p = {}
+                p['peer_id'], p['ip'], p['port'], _ = peer_info
+                if no_peer_id: del p['peer_id']
+                peers.append(p)
+        logging.debug('peer list: %r' %peers[:numwant])
+        return peers[:numwant]
     

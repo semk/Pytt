@@ -30,23 +30,35 @@ class AnnounceHandler(tornado.web.RequestHandler):
     def get(self):
         failure_reason = ''
         warning_message = ''
-        # Get all the supported parameters from the HTTP request.
+
+        # get all the supported parameters from the HTTP request.
         info_hash = self.get_argument('info_hash')
         peer_id = self.get_argument('peer_id')
         ip = self.get_argument('ip') or self.request.remote_ip
         port = self.get_argument('port')
-        uploaded = self.get_argument('uploaded', '')
-        downloaded = self.get_argument('downloaded', '')
-        left = self.get_argument('left', '')
-        compact = self.get_argument('compact', '')
-        no_peer_id = self.get_argument('no_peer_id', '')
+
+        # send appropirate error code.
+        if not peer_id:
+            self.send_error(MISSING_PEER_ID)
+        if not info_hash:
+            self.send_error(MISSING_INFO_HASH)
+        if not port:
+            self.send_error(MISSING_PORT)
+
+        # get the optional parameters.
+        uploaded = int(self.get_argument('uploaded', 0))
+        downloaded = int(self.get_argument('downloaded', 0))
+        left = int(self.get_argument('left', 0))
+        compact = int(self.get_argument('compact', 0))
+        no_peer_id = int(self.get_argument('no_peer_id', 0))
         event = self.get_argument('event', '')
-        numwant = self.get_argument('numwant', '')
+        numwant = int(self.get_argument('numwant', MAX_ALLOWED_PEERS))
         key = self.get_argument('key', '')
         tracker_id = self.get_argument('trackerid', '')
 
         # store the peer info
-        store_peer_info(info_hash, peer_id, ip, port)
+        if event:
+            store_peer_info(info_hash, peer_id, ip, port, event)
 
         # generate response
         response = {}
@@ -57,9 +69,10 @@ class AnnounceHandler(tornado.web.RequestHandler):
         #    more frequently than this.
         response['min interval'] = get_config().getint('tracker', 'min_interval')
         response['tracker id'] = tracker_id
-        response['complete'] = get_numof_seeders(info_hash)
-        response['incomplete'] = get_numof_leechers(info_hash)
-        response['peers'] = get_peer_list(info_hash)
+        response['complete'] = no_of_seeders(info_hash)
+        response['incomplete'] = no_of_leechers(info_hash)
+        # get the peer list for this announce
+        response['peers'] = get_peer_list(info_hash, numwant, compact, no_peer_id)
         if failure_reason:
             response['failure reason'] = failure_reason
         if warning_message:
@@ -70,6 +83,8 @@ class AnnounceHandler(tornado.web.RequestHandler):
         self.write(bencode(response))
 
     def get_argument(self, arg, default=[], strip=True):
+        """Convert unicode arguments to a string value.
+        """
         value = super(AnnounceHandler, self).get_argument(arg, default, strip)
         if value != default:
             return str(value)
