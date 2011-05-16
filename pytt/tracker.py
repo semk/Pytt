@@ -111,6 +111,7 @@ class ScrapeHandler(tornado.web.RequestHandler):
         info_hashes = self.get_arguments('info_hash')
         response = {}
         for info_hash in info_hashes:
+            info_hash = str(info_hash)
             response[info_hash] = {}
             response[info_hash]['complete'] = no_of_seeders(info_hash)
             # FIXME: number of times clients have registered completion.
@@ -121,14 +122,6 @@ class ScrapeHandler(tornado.web.RequestHandler):
         # send the bencoded response as text/plain document.
         self.set_header('content-type', 'text/plain')
         self.write(bencode(response))
-
-    def get_argument(self, arg, default=[], strip=True):
-        """Convert unicode arguments to a string value.
-        """
-        value = super(ScrapeHandler, self).get_argument(arg, default, strip)
-        if value != default:
-            return str(value)
-        return value
 
 
 def run_app(port):
