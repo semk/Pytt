@@ -17,14 +17,14 @@ from bencode import bencode, bdecode
 from utils import *
 
 
-class TrackerStats(tornado.web.RequestHandler):
+class TrackerStats(BaseHandler):
     """Shows the Tracker statistics on this page.
     """
     def get(self):
         self.send_error(404)
 
 
-class AnnounceHandler(tornado.web.RequestHandler):
+class AnnounceHandler(BaseHandler):
     """Track the torrents. Respond with the peer-list.
     """
     def get(self):
@@ -46,7 +46,7 @@ class AnnounceHandler(tornado.web.RequestHandler):
             self.send_error(MISSING_PORT)
         if len(info_hash) != INFO_HASH_LEN:
             self.send_error(INVALID_INFO_HASH)
-        if len(PEER_ID) != PEER_ID_LEN:
+        if len(peer_id) != PEER_ID_LEN:
             self.send_error(INVALID_PEER_ID)
 
         # get the optional parameters.
@@ -95,16 +95,8 @@ class AnnounceHandler(tornado.web.RequestHandler):
         self.set_header('content-type', 'text/plain')
         self.write(bencode(response))
 
-    def get_argument(self, arg, default=[], strip=True):
-        """Convert unicode arguments to a string value.
-        """
-        value = super(AnnounceHandler, self).get_argument(arg, default, strip)
-        if value != default:
-            return str(value)
-        return value
 
-
-class ScrapeHandler(tornado.web.RequestHandler):
+class ScrapeHandler(BaseHandler):
     """Returns the state of all torrents this tracker is managing.
     """
     def get(self):

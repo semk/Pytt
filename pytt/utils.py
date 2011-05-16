@@ -14,6 +14,8 @@ import shelve
 from socket import inet_aton
 from struct import pack
 import ConfigParser
+import tornado.web
+import httplib
 
 
 # Paths used by Pytt.
@@ -37,6 +39,21 @@ INVALID_PEER_ID = 151
 INVALID_NUMWANT = 152
 GENERIC_ERROR = 900 
 
+# Pytt response messages
+PYTT_RESPONSE_MESSAGES = {INVALID_REQUEST_TYPE: 'Invalid Request type',
+                          MISSING_INFO_HASH: 'Missing info_hash field',
+                          MISSING_PEER_ID: 'Missing peer_id field',
+                          MISSING_PORT: 'Missing port field',
+                          INVALID_INFO_HASH: 'info_hash is not %d bytes'
+                                                          %INFO_HASH_LEN,
+                          INVALID_PEER_ID: 'peer_id is not %d bytes'
+                                                          %PEER_ID_LEN,
+                          INVALID_NUMWANT: 'Peers more than %d is not allowed.'
+                                                          %MAX_ALLOWED_PEERS,
+                          GENERIC_ERROR: 'Error in request',
+                        }
+# add our response codes to httplib.responses
+httplib.responses.update(PYTT_RESPONSE_MESSAGES)
 
 def setup_logging(debug=False):
     """Setup application logging.
@@ -80,6 +97,18 @@ def create_pytt_dirs():
     # create the default config if its not there.
     if not os.path.exists(CONFIG_PATH):
         create_config(CONFIG_PATH)
+
+
+class BaseHandler(tornado.web.RequestHandler):
+    """Since I dont like some tornado craps :-)
+    """
+    def get_argument(self, arg, default=[], strip=True):
+        """Convert unicode arguments to a string value.
+        """
+        value = super(BaseHandler, self).get_argument(arg, default, strip)
+        if value != default:
+            return str(value)
+        return value
 
 
 class ConfigError(Exception):
