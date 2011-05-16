@@ -16,17 +16,26 @@ from struct import pack
 import ConfigParser
 
 
+# Paths used by Pytt.
 CONFIG_PATH = os.path.expanduser('~/.pytt/config/pytt.conf')
 DB_PATH = os.path.expanduser('~/.pytt/db/pytt.db')
 LOG_PATH = os.path.expanduser('~/.pytt/log/pytt.log')
 
-DEFAULT_ALLOWED_PEERS = 30
+# Some global constants.
+PEER_INCREASE_LIMIT = 30
+DEFAULT_ALLOWED_PEERS = 50
 MAX_ALLOWED_PEERS = 55
+INFO_HASH_LEN = PEER_ID_LEN = 20
 
-# HTTP Error Codes
+# HTTP Error Codes for BitTorrent Tracker
+INVALID_REQUEST_TYPE = 100
 MISSING_INFO_HASH = 101
 MISSING_PEER_ID = 102
 MISSING_PORT = 103
+INVALID_INFO_HASH = 150
+INVALID_PEER_ID = 151
+INVALID_NUMWANT = 152
+GENERIC_ERROR = 900 
 
 
 def setup_logging(debug=False):

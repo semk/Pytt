@@ -31,19 +31,23 @@ class AnnounceHandler(tornado.web.RequestHandler):
         failure_reason = ''
         warning_message = ''
 
-        # get all the supported parameters from the HTTP request.
+        # get all the required parameters from the HTTP request.
         info_hash = self.get_argument('info_hash')
         peer_id = self.get_argument('peer_id')
         ip = self.get_argument('ip') or self.request.remote_ip
         port = self.get_argument('port')
 
         # send appropirate error code.
-        if not peer_id:
-            self.send_error(MISSING_PEER_ID)
         if not info_hash:
             self.send_error(MISSING_INFO_HASH)
+        if not peer_id:
+            self.send_error(MISSING_PEER_ID)
         if not port:
             self.send_error(MISSING_PORT)
+        if len(info_hash) != INFO_HASH_LEN:
+            self.send_error(INVALID_INFO_HASH)
+        if len(PEER_ID) != PEER_ID_LEN:
+            self.send_error(INVALID_PEER_ID)
 
         # get the optional parameters.
         uploaded = int(self.get_argument('uploaded', 0))
@@ -52,7 +56,12 @@ class AnnounceHandler(tornado.web.RequestHandler):
         compact = int(self.get_argument('compact', 0))
         no_peer_id = int(self.get_argument('no_peer_id', 0))
         event = self.get_argument('event', '')
-        numwant = int(self.get_argument('numwant', MAX_ALLOWED_PEERS))
+        numwant = int(self.get_argument('numwant', DEFAULT_ALLOWED_PEERS))
+        if numwant > MAX_ALLOWED_PEERS:
+            # cannot request more than MAX_ALLOWED_PEERS.
+            self.send_error(INVALID_NUMWANT)
+
+        # FIXME: What to do with these parameters?
         key = self.get_argument('key', '')
         tracker_id = self.get_argument('trackerid', '')
 
@@ -68,11 +77,15 @@ class AnnounceHandler(tornado.web.RequestHandler):
         # Minimum announce interval. If present clients must not re-announce 
         #    more frequently than this.
         response['min interval'] = get_config().getint('tracker', 'min_interval')
+        # FIXME
         response['tracker id'] = tracker_id
         response['complete'] = no_of_seeders(info_hash)
         response['incomplete'] = no_of_leechers(info_hash)
+        
         # get the peer list for this announce
         response['peers'] = get_peer_list(info_hash, numwant, compact, no_peer_id)
+
+        # set error and warning messages for the client if any.
         if failure_reason:
             response['failure reason'] = failure_reason
         if warning_message:
