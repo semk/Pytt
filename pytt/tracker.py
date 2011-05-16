@@ -125,7 +125,7 @@ class ScrapeHandler(tornado.web.RequestHandler):
     def get_argument(self, arg, default=[], strip=True):
         """Convert unicode arguments to a string value.
         """
-        value = super(AnnounceHandler, self).get_argument(arg, default, strip)
+        value = super(ScrapeHandler, self).get_argument(arg, default, strip)
         if value != default:
             return str(value)
         return value
