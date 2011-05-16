@@ -122,13 +122,13 @@ class ScrapeHandler(tornado.web.RequestHandler):
         self.set_header('content-type', 'text/plain')
         self.write(bencode(response))
 
-	def get_argument(self, arg, default=[], strip=True):
-		"""Convert unicode arguments to a string value.
-		"""
-		value = super(AnnounceHandler, self).get_argument(arg, default, strip)
-		if value != default:
-			return str(value)
-		return value
+    def get_argument(self, arg, default=[], strip=True):
+        """Convert unicode arguments to a string value.
+        """
+        value = super(AnnounceHandler, self).get_argument(arg, default, strip)
+        if value != default:
+            return str(value)
+        return value
 
 
 def run_app(port):
