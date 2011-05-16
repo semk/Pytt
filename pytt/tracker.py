@@ -108,7 +108,27 @@ class ScrapeHandler(tornado.web.RequestHandler):
     """Returns the state of all torrents this tracker is managing.
     """
     def get(self):
-        self.send_error(404)
+        info_hashes = self.get_arguments('info_hash')
+        response = {}
+        for info_hash in info_hashes:
+            response[info_hash] = {}
+            response[info_hash]['complete'] = no_of_seeders(info_hash)
+            # FIXME: number of times clients have registered completion.
+            response[info_hash]['downloaded'] = no_of_seeders(info_hash)
+            response[info_hash]['incomplete'] = no_of_leechers(info_hash)
+            response[info_hash]['name'] = bdecode(info_hash).get(name, '')
+
+        # send the bencoded response as text/plain document.
+        self.set_header('content-type', 'text/plain')
+        self.write(bencode(response))
+
+	def get_argument(self, arg, default=[], strip=True):
+		"""Convert unicode arguments to a string value.
+		"""
+		value = super(AnnounceHandler, self).get_argument(arg, default, strip)
+		if value != default:
+			return str(value)
+		return value
 
 
 def run_app(port):
