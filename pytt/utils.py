@@ -155,7 +155,7 @@ def no_of_seeders(info_hash):
     db = get_db()
     count = 0
     if db.has_key(info_hash):
-        for peer_info in db[info_hash].values():
+        for peer_info in db[info_hash]:
             if peer_info[3] == 'completed':
                 count += 1
     return count
@@ -167,7 +167,7 @@ def no_of_leechers(info_hash):
     db = get_db()
     count = 0
     if db.has_key(info_hash):
-        for peer_info in db[info_hash].values():
+        for peer_info in db[info_hash]:
             if peer_info[3] == 'started':
                 count += 1
     return count
