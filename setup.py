@@ -10,19 +10,20 @@ from setuptools import setup, find_packages
 
 setup(
     name = "Pytt",
-    version = "0.1.5",
+    version = "0.1.7",
     packages = find_packages(),
     install_requires = ['setuptools',
-                        'tornado-1.2.1',
+                        'tornado >= 1.2.1',
                         ],
     extras_require = {'test': ['nose']},
+    scripts = ['scripts/pytt'],
 
     # metadata for upload to PyPI
     author = "Sreejith K",
     author_email = "sreejithemk@gmail.com",
     description = "A Pure Python BitTorrent Tracker using Tornado",
     license = "http://www.apache.org/licenses/LICENSE-2.0",
-    keywords = "bittorrent tracker bencode bdecode scrape",
+    keywords = "bittorrent tracker bencode bdecode scrape ui",
     url = "http://foobarnbaz.com/lab/pytt",
     zip_safe = True,
     long_description = """Pytt is a simple BitTorrent tracker written using Tornado non-blocking web server. It also features a UI for showing tracker statistics.""",
