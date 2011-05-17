@@ -1,0 +1,10 @@
+#! /bin/sh
+#
+# Script to run Pytt
+#
+# @author: Sreejith K <sreejithemk@gmail.com>
+# Created on 17th May 2011
+# http://foobarnbaz.com
+
+# run Pytt as a daemon
+/usr/bin/python -m "pytt.tracker" $*
