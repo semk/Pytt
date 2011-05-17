@@ -40,7 +40,8 @@ INVALID_NUMWANT = 152
 GENERIC_ERROR = 900 
 
 # Pytt response messages
-PYTT_RESPONSE_MESSAGES = {INVALID_REQUEST_TYPE: 'Invalid Request type',
+PYTT_RESPONSE_MESSAGES = {
+                          INVALID_REQUEST_TYPE: 'Invalid Request type',
                           MISSING_INFO_HASH: 'Missing info_hash field',
                           MISSING_PEER_ID: 'Missing peer_id field',
                           MISSING_PORT: 'Missing port field',
@@ -51,9 +52,10 @@ PYTT_RESPONSE_MESSAGES = {INVALID_REQUEST_TYPE: 'Invalid Request type',
                           INVALID_NUMWANT: 'Peers more than %d is not allowed.'
                                                           %MAX_ALLOWED_PEERS,
                           GENERIC_ERROR: 'Error in request',
-                        }
+                         }
 # add our response codes to httplib.responses
 httplib.responses.update(PYTT_RESPONSE_MESSAGES)
+
 
 def setup_logging(debug=False):
     """Setup application logging.
