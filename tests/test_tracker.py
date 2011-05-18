@@ -60,7 +60,7 @@ class TestAnnounceHandler(TestHandlerBase):
     """Test cases for Announce request for the Torrent Tracker
     """
     def announce_test(self):
-        """Test response for Announce.
+        """Test response for Announce request.
         """
         # torrent meta info
         info = {'piece length': 1024,
@@ -82,9 +82,8 @@ class TestAnnounceHandler(TestHandlerBase):
         # urlencode this dictionary
         query = urllib.urlencode(query)
         # send GET request to /announce
-        response = self.fetch('/announce', 
-                            method='GET', 
-                            body=query, 
+        response = self.fetch('/announce?%s' %query, 
+                            method='GET',
                             follow_redirects=False)
         # if successful, should return 200-OK 
         self.assertEqual(response.code, 200)
