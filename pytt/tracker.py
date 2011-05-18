@@ -39,15 +39,15 @@ class AnnounceHandler(BaseHandler):
 
         # send appropirate error code.
         if not info_hash:
-            self.send_error(MISSING_INFO_HASH)
+            return self.send_error(MISSING_INFO_HASH)
         if not peer_id:
-            self.send_error(MISSING_PEER_ID)
+            return self.send_error(MISSING_PEER_ID)
         if not port:
-            self.send_error(MISSING_PORT)
+            return self.send_error(MISSING_PORT)
         if len(info_hash) != INFO_HASH_LEN:
-            self.send_error(INVALID_INFO_HASH)
+            return self.send_error(INVALID_INFO_HASH)
         if len(peer_id) != PEER_ID_LEN:
-            self.send_error(INVALID_PEER_ID)
+            return self.send_error(INVALID_PEER_ID)
 
         # get the optional parameters.
         uploaded = int(self.get_argument('uploaded', 0))
