@@ -2,6 +2,8 @@
 
 Pytt (Python Torrent Tracker, pronounced as 'pity') is a BitTorrent Tracker written in Python using non-blocking Tornado Web Server. It also features a nice and clean UI for showing Tracker statistics.
 
+__Work In Progress__: _May not work as a fully functioning Torrent Tracker_.
+
 ## Installing Pytt
 
 To install Pytt, run
