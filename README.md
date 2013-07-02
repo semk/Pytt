@@ -32,8 +32,6 @@ or
 - `-d` or `--debug` (optional): Enable debug mode
 - `-b` or `--background` (optional): Run as a daemon process
 
-## Developer
+## License
 
-Sreejith K <sreejithemk@gmail.com>
-
-http://foobarnbaz.com
+MIT License. Refer COPYING for more info.
