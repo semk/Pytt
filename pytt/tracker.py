@@ -34,7 +34,7 @@ class AnnounceHandler(BaseHandler):
         # get all the required parameters from the HTTP request.
         info_hash = self.get_argument('info_hash')
         peer_id = self.get_argument('peer_id')
-        ip = self.get_argument('ip') or self.request.remote_ip
+        ip = self.request.remote_ip
         port = self.get_argument('port')
 
         # send appropirate error code.
