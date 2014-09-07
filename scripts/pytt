@@ -7,4 +7,4 @@
 # http://foobarnbaz.com
 
 # run Pytt as a daemon
-/usr/bin/python -m "pytt.tracker" $*
+/usr/bin/env python -m "pytt.tracker" $*
