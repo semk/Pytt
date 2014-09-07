@@ -13,9 +13,14 @@ import logging.handlers
 import shelve
 from socket import inet_aton
 from struct import pack
-import ConfigParser
 import tornado.web
-import httplib
+import binascii
+try:
+    from ConfigParser import RawConfigParser
+    from httplib import responses
+except ImportError:
+    from configparser import RawConfigParser
+    from http.client import responses
 
 
 # Paths used by Pytt.
@@ -27,7 +32,8 @@ LOG_PATH = os.path.expanduser('~/.pytt/log/pytt.log')
 PEER_INCREASE_LIMIT = 30
 DEFAULT_ALLOWED_PEERS = 50
 MAX_ALLOWED_PEERS = 55
-INFO_HASH_LEN = PEER_ID_LEN = 20
+INFO_HASH_LEN = 20 * 2  # info_hash is hexified.
+PEER_ID_LEN = 20
 
 # HTTP Error Codes for BitTorrent Tracker
 INVALID_REQUEST_TYPE = 100
@@ -37,24 +43,23 @@ MISSING_PORT = 103
 INVALID_INFO_HASH = 150
 INVALID_PEER_ID = 151
 INVALID_NUMWANT = 152
-GENERIC_ERROR = 900 
+GENERIC_ERROR = 900
 
 # Pytt response messages
 PYTT_RESPONSE_MESSAGES = {
-                          INVALID_REQUEST_TYPE: 'Invalid Request type',
-                          MISSING_INFO_HASH: 'Missing info_hash field',
-                          MISSING_PEER_ID: 'Missing peer_id field',
-                          MISSING_PORT: 'Missing port field',
-                          INVALID_INFO_HASH: 'info_hash is not %d bytes'
-                                                          %INFO_HASH_LEN,
-                          INVALID_PEER_ID: 'peer_id is not %d bytes'
-                                                          %PEER_ID_LEN,
-                          INVALID_NUMWANT: 'Peers more than %d is not allowed.'
-                                                          %MAX_ALLOWED_PEERS,
-                          GENERIC_ERROR: 'Error in request',
-                         }
+    INVALID_REQUEST_TYPE: 'Invalid Request type',
+    MISSING_INFO_HASH: 'Missing info_hash field',
+    MISSING_PEER_ID: 'Missing peer_id field',
+    MISSING_PORT: 'Missing port field',
+    INVALID_INFO_HASH: 'info_hash is not %d bytes' % INFO_HASH_LEN,
+    INVALID_PEER_ID: 'peer_id is not %d bytes' % PEER_ID_LEN,
+    INVALID_NUMWANT: 'Peers more than %d is not allowed.' % MAX_ALLOWED_PEERS,
+    GENERIC_ERROR: 'Error in request',
+}
 # add our response codes to httplib.responses
-httplib.responses.update(PYTT_RESPONSE_MESSAGES)
+responses.update(PYTT_RESPONSE_MESSAGES)
+
+logger = logging.getLogger('tornado.access')
 
 
 def setup_logging(debug=False):
@@ -65,8 +70,8 @@ def setup_logging(debug=False):
     else:
         level = logging.INFO
     log_handler = logging.handlers.RotatingFileHandler(LOG_PATH,
-                                                      maxBytes=1024*1024,
-                                                      backupCount=2)
+                                                       maxBytes=1024*1024,
+                                                       backupCount=2)
     root_logger = logging.getLogger('')
     root_logger.setLevel(level)
     format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -78,13 +83,13 @@ def setup_logging(debug=False):
 def create_config(path):
     """Create default config file.
     """
-    logging.info('creating default config at %s' %CONFIG_PATH)
-    config = ConfigParser.RawConfigParser()
+    logging.info('creating default config at %s' % CONFIG_PATH)
+    config = RawConfigParser()
     config.add_section('tracker')
     config.set('tracker', 'port', '8080')
     config.set('tracker', 'interval', '5')
     config.set('tracker', 'min_interval', '1')
-    with open(path, 'wb') as f:
+    with open(path, 'w') as f:
         config.write(f)
 
 
@@ -104,13 +109,11 @@ def create_pytt_dirs():
 class BaseHandler(tornado.web.RequestHandler):
     """Since I dont like some tornado craps :-)
     """
-    def get_argument(self, arg, default=[], strip=True):
-        """Convert unicode arguments to a string value.
-        """
-        value = super(BaseHandler, self).get_argument(arg, default, strip)
-        if value != default:
-            return str(value)
-        return value
+    def decode_argument(self, value, name):
+        # info_hash is raw_bytes, hexify it.
+        if name == 'info_hash':
+            value = binascii.hexlify(value)
+        return super(BaseHandler, self).decode_argument(value, name)
 
 
 class ConfigError(Exception):
@@ -132,9 +135,9 @@ class Config:
         """Get the config object.
         """
         if not hasattr(self, '__config'):
-            self.__config = ConfigParser.RawConfigParser()
+            self.__config = RawConfigParser()
             if self.__config.read(CONFIG_PATH) == []:
-                raise ConfigError('No config at %s' %CONFIG_PATH)
+                raise ConfigError('No config at %s' % CONFIG_PATH)
         return self.__config
 
     def close(self):
@@ -194,7 +197,7 @@ def no_of_seeders(info_hash):
     """
     db = get_db()
     count = 0
-    if db.has_key(info_hash):
+    if info_hash in db:
         for peer_info in db[info_hash]:
             if peer_info[3] == 'completed':
                 count += 1
@@ -206,7 +209,7 @@ def no_of_leechers(info_hash):
     """
     db = get_db()
     count = 0
-    if db.has_key(info_hash):
+    if info_hash in db:
         for peer_info in db[info_hash]:
             if peer_info[3] == 'started':
                 count += 1
@@ -217,13 +220,14 @@ def store_peer_info(info_hash, peer_id, ip, port, status):
     """Store the information about the peer.
     """
     db = get_db()
-    if db.has_key(info_hash):
+    if info_hash in db:
         if (peer_id, ip, port, status) not in db[info_hash]:
             db[info_hash].append((peer_id, ip, port, status))
     else:
         db[info_hash] = [(peer_id, ip, port, status)]
 
 
+# TODO: add ipv6 support
 def get_peer_list(info_hash, numwant, compact, no_peer_id):
     """Get all the peer's info with peer_id, ip and port.
     Eg: [{'peer_id':'#1223&&IJM', 'ip':'162.166.112.2', 'port': '7887'}, ...]
@@ -231,23 +235,23 @@ def get_peer_list(info_hash, numwant, compact, no_peer_id):
     db = get_db()
     if compact:
         byteswant = numwant * 6
-        compact_peers = ""
+        compact_peers = b''
         # make a compact peer list
-        if db.has_key(info_hash):
+        if info_hash in db:
             for peer_info in db[info_hash]:
                 ip = inet_aton(peer_info[1])
                 port = pack('>H', int(peer_info[2]))
                 compact_peers += (ip+port)
-        logging.debug('compact peer list: %r' %compact_peers[:byteswant])
+        logging.debug('compact peer list: %r' % compact_peers[:byteswant])
         return compact_peers[:byteswant]
     else:
         peers = []
-        if db.has_key(info_hash):
+        if info_hash in db:
             for peer_info in db[info_hash]:
                 p = {}
                 p['peer_id'], p['ip'], p['port'], _ = peer_info
-                if no_peer_id: del p['peer_id']
+                if no_peer_id:
+                    del p['peer_id']
                 peers.append(p)
-        logging.debug('peer list: %r' %peers[:numwant])
+        logging.debug('peer list: %r' % peers[:numwant])
         return peers[:numwant]
-    

@@ -5,21 +5,25 @@
 # @author: Sreejith K <sreejithemk@gmail.com>
 # Created on 12th May 2011
 # http://foobarnbaz.com
-
-
-import sys
 import logging
+from optparse import OptionParser
+import sys
+
 import tornado.ioloop
 import tornado.web
 import tornado.httpserver
-from optparse import OptionParser
-from bencode import bencode, bdecode
-from utils import *
+
+from .bencode import bencode
+from .utils import *
+
+
+logger = logging.getLogger('tornado.access')
 
 
 class TrackerStats(BaseHandler):
     """Shows the Tracker statistics on this page.
     """
+    @tornado.web.asynchronous
     def get(self):
         self.send_error(404)
 
@@ -27,6 +31,7 @@ class TrackerStats(BaseHandler):
 class AnnounceHandler(BaseHandler):
     """Track the torrents. Respond with the peer-list.
     """
+    @tornado.web.asynchronous
     def get(self):
         failure_reason = ''
         warning_message = ''
@@ -49,20 +54,23 @@ class AnnounceHandler(BaseHandler):
         if len(peer_id) != PEER_ID_LEN:
             return self.send_error(INVALID_PEER_ID)
 
+        # Shelve in Python2 doesn't support unicode
+        info_hash = str(info_hash)
+
         # get the optional parameters.
-        uploaded = int(self.get_argument('uploaded', 0))
-        downloaded = int(self.get_argument('downloaded', 0))
-        left = int(self.get_argument('left', 0))
+        # FIXME: these parameters will be used in future versions
+        # uploaded = int(self.get_argument('uploaded', 0))
+        # downloaded = int(self.get_argument('downloaded', 0))
+        # left = int(self.get_argument('left', 0))
         compact = int(self.get_argument('compact', 0))
         no_peer_id = int(self.get_argument('no_peer_id', 0))
         event = self.get_argument('event', '')
         numwant = int(self.get_argument('numwant', DEFAULT_ALLOWED_PEERS))
         if numwant > MAX_ALLOWED_PEERS:
-            # cannot request more than MAX_ALLOWED_PEERS.
-            self.send_error(INVALID_NUMWANT)
+            # XXX: cannot request more than MAX_ALLOWED_PEERS.
+            return self.send_error(INVALID_NUMWANT)
 
-        # FIXME: What to do with these parameters?
-        key = self.get_argument('key', '')
+        # key = self.get_argument('key', '')
         tracker_id = self.get_argument('trackerid', '')
 
         # store the peer info
@@ -71,19 +79,23 @@ class AnnounceHandler(BaseHandler):
 
         # generate response
         response = {}
-        # Interval in seconds that the client should wait between sending 
+        # Interval in seconds that the client should wait between sending
         #    regular requests to the tracker.
         response['interval'] = get_config().getint('tracker', 'interval')
-        # Minimum announce interval. If present clients must not re-announce 
+        # Minimum announce interval. If present clients must not re-announce
         #    more frequently than this.
-        response['min interval'] = get_config().getint('tracker', 'min_interval')
+        response['min interval'] = get_config().getint('tracker',
+                                                       'min_interval')
         # FIXME
         response['tracker id'] = tracker_id
         response['complete'] = no_of_seeders(info_hash)
         response['incomplete'] = no_of_leechers(info_hash)
-        
+
         # get the peer list for this announce
-        response['peers'] = get_peer_list(info_hash, numwant, compact, no_peer_id)
+        response['peers'] = get_peer_list(info_hash,
+                                          numwant,
+                                          compact,
+                                          no_peer_id)
 
         # set error and warning messages for the client if any.
         if failure_reason:
@@ -92,13 +104,15 @@ class AnnounceHandler(BaseHandler):
             response['warning message'] = warning_message
 
         # send the bencoded response as text/plain document.
-        self.set_header('content-type', 'text/plain')
+        self.set_header('Content-Type', 'text/plain')
         self.write(bencode(response))
+        self.finish()
 
 
 class ScrapeHandler(BaseHandler):
     """Returns the state of all torrents this tracker is managing.
     """
+    @tornado.web.asynchronous
     def get(self):
         info_hashes = self.get_arguments('info_hash')
         response = {}
@@ -109,11 +123,13 @@ class ScrapeHandler(BaseHandler):
             # FIXME: number of times clients have registered completion.
             response[info_hash]['downloaded'] = no_of_seeders(info_hash)
             response[info_hash]['incomplete'] = no_of_leechers(info_hash)
-            response[info_hash]['name'] = bdecode(info_hash).get(name, '')
+            # this is possible typo:
+            # response[info_hash]['name'] = bdecode(info_hash).get(name, '')
 
         # send the bencoded response as text/plain document.
         self.set_header('content-type', 'text/plain')
         self.write(bencode(response))
+        self.finish()
 
 
 def run_app(port):
@@ -124,7 +140,7 @@ def run_app(port):
         (r"/scrape.*", ScrapeHandler),
         (r"/", TrackerStats),
     ])
-    logging.info('Starting Pytt on port %d' %port)
+    logging.info('Starting Pytt on port %d' % port)
     http_server = tornado.httpserver.HTTPServer(tracker)
     http_server.listen(port)
     tornado.ioloop.IOLoop.instance().start()
@@ -136,10 +152,10 @@ def start_tracker():
     # parse commandline options
     parser = OptionParser()
     parser.add_option('-p', '--port', help='Tracker Port', default=0)
-    parser.add_option('-b', '--background', action='store_true', 
-                    default=False, help='Start in background')
-    parser.add_option('-d', '--debug', action='store_true', 
-                    default=False, help='Debug mode')
+    parser.add_option('-b', '--background', action='store_true',
+                      default=False, help='Start in background')
+    parser.add_option('-d', '--debug', action='store_true',
+                      default=False, help='Debug mode')
     (options, args) = parser.parse_args()
 
     # setup directories
@@ -154,8 +170,8 @@ def start_tracker():
         logging.info('Tracker Stopped.')
         close_db()
         sys.exit(0)
-    except Exception, ex:
-        logging.fatal('%s' %str(ex))
+    except Exception as ex:
+        logging.fatal('%s' % str(ex))
         close_db()
         sys.exit(-1)
 
