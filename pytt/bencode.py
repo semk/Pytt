@@ -10,8 +10,49 @@
 
 # Written by Petru Paler
 
+import logging
+import sys
+
+
+decode_func = {}
+encode_func = {}
+valid_chars = '0123456789.-+eE'
+
+
 class BTFailure(Exception):
     pass
+
+
+class Bencached(object):
+
+    __slots__ = ['bencoded']
+
+    def __init__(self, s):
+        self.bencoded = s
+
+
+def bdecode(x):
+    logging.debug('bdecode({})'.format(x))
+    try:
+        r, l = decode_func[x[0]](x, 0)
+    except (IndexError, KeyError, ValueError):
+        raise BTFailure("not a valid bencoded string")
+    if l != len(x):
+        raise BTFailure("invalid bencoded value (data after valid prefix)")
+    return r
+
+
+def bencode(x):
+    def _to_bytes(x):
+        if isinstance(x, bytes):
+            return x
+        else:
+            return str(x).encode('utf-8')
+    logging.debug('bencode({})'.format(x))
+    r = []
+    encode_func[type(x)](x, r)
+    return b''.join(map(_to_bytes, r))
+
 
 def decode_int(x, f):
     f += 1
@@ -22,7 +63,27 @@ def decode_int(x, f):
             raise ValueError
     elif x[f] == '0' and newf != f+1:
         raise ValueError
-    return (n, newf+1)
+    return (n, newf + 1)
+
+
+def assert_finite(n):
+    """Raises ValueError if n is NaN or infinite."""
+
+    if translate(repr(n)) != '':
+        raise ValueError('encountered NaN or infinite')
+
+
+def decode_float(x, f):
+    f += 1
+    newf = x.index('e', f)
+    try:
+        n = float(x[f:newf].replace('E', 'e'))
+        assert_finite(n)
+    except (OverflowError, ValueError):
+        raise ValueError('encountered NaN or infinite')
+
+    return (n, newf + 1)
+
 
 def decode_string(x, f):
     colon = x.index(':', f)
@@ -32,100 +93,96 @@ def decode_string(x, f):
     colon += 1
     return (x[colon:colon+n], colon+n)
 
+
 def decode_list(x, f):
-    r, f = [], f+1
+    r, f = [], f + 1
     while x[f] != 'e':
         v, f = decode_func[x[f]](x, f)
         r.append(v)
     return (r, f + 1)
 
+
 def decode_dict(x, f):
-    r, f = {}, f+1
+    r, f = {}, f + 1
     while x[f] != 'e':
         k, f = decode_string(x, f)
         r[k], f = decode_func[x[f]](x, f)
     return (r, f + 1)
 
-decode_func = {}
-decode_func['l'] = decode_list
-decode_func['d'] = decode_dict
-decode_func['i'] = decode_int
-decode_func['0'] = decode_string
-decode_func['1'] = decode_string
-decode_func['2'] = decode_string
-decode_func['3'] = decode_string
-decode_func['4'] = decode_string
-decode_func['5'] = decode_string
-decode_func['6'] = decode_string
-decode_func['7'] = decode_string
-decode_func['8'] = decode_string
-decode_func['9'] = decode_string
 
-def bdecode(x):
-    try:
-        r, l = decode_func[x[0]](x, 0)
-    except (IndexError, KeyError, ValueError):
-        raise BTFailure("not a valid bencoded string")
-    if l != len(x):
-        raise BTFailure("invalid bencoded value (data after valid prefix)")
-    return r
-
-from types import StringType, IntType, LongType, DictType, ListType, TupleType
-
-
-class Bencached(object):
-
-    __slots__ = ['bencoded']
-
-    def __init__(self, s):
-        self.bencoded = s
-
-def encode_bencached(x,r):
+def encode_bencached(x, r):
     r.append(x.bencoded)
 
+
 def encode_int(x, r):
-    r.extend(('i', str(x), 'e'))
+    r.extend(('i', x, 'e'))
+
+
+def encode_float(x, r):
+    r.extend(('f', repr(x).replace('e', 'E'), 'e'))
+
 
 def encode_bool(x, r):
-    if x:
-        encode_int(1, r)
-    else:
-        encode_int(0, r)
-        
+    encode_int(int(bool(x)), r)
+
+
 def encode_string(x, r):
-    r.extend((str(len(x)), ':', x))
+    r.extend((len(x), ':', x))
+
 
 def encode_list(x, r):
-    r.append('l')
+    r.append(b'l')
     for i in x:
         encode_func[type(i)](i, r)
-    r.append('e')
+    r.append(b'e')
 
-def encode_dict(x,r):
-    r.append('d')
-    ilist = x.items()
-    ilist.sort()
-    for k, v in ilist:
-        r.extend((str(len(k)), ':', k))
+
+def encode_dict(x, r):
+    r.append(b'd')
+    for k, v in sorted(x.items()):
+        r.extend((str(len(k)), b':', k))
         encode_func[type(v)](v, r)
-    r.append('e')
+    r.append(b'e')
 
-encode_func = {}
-encode_func[Bencached] = encode_bencached
-encode_func[IntType] = encode_int
-encode_func[LongType] = encode_int
-encode_func[StringType] = encode_string
-encode_func[ListType] = encode_list
-encode_func[TupleType] = encode_list
-encode_func[DictType] = encode_dict
 
-try:
-    from types import BooleanType
-    encode_func[BooleanType] = encode_bool
-except ImportError:
-    pass
+encode_func = {
+    Bencached: encode_bencached,
+    int: encode_int,
+    float: encode_float,
+    str: encode_string,
+    list: encode_list,
+    tuple: encode_list,
+    dict: encode_dict,
+    bool: encode_bool,
+}
 
-def bencode(x):
-    r = []
-    encode_func[type(x)](x, r)
-    return ''.join(r)
+
+decode_func = {
+    'l': decode_list,
+    'd': decode_dict,
+    'i': decode_int,
+    'f': decode_float,
+    '0': decode_string,
+    '1': decode_string,
+    '2': decode_string,
+    '3': decode_string,
+    '4': decode_string,
+    '5': decode_string,
+    '6': decode_string,
+    '7': decode_string,
+    '8': decode_string,
+    '9': decode_string,
+}
+
+
+if sys.version >= (3, 0):
+    encode_func[bytes] = encode_string
+
+    def translate(value):
+        return value.translate(str.maketrans('', '', valid_chars))
+else:
+    encode_func[unicode] = encode_string
+    import string
+
+    def translate(value):
+        return value.translate(string.maketrans('', ''), valid_chars)

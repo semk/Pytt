@@ -13,7 +13,7 @@ setup(
     version = "0.1.7",
     packages = find_packages(),
     install_requires = ['setuptools',
-                        'tornado >= 1.2.1',
+                        'tornado >= 4.0',
                         ],
     extras_require = {'test': ['nose']},
     scripts = ['scripts/pytt'],
@@ -26,5 +26,19 @@ setup(
     keywords = "bittorrent tracker bencode bdecode scrape ui",
     url = "http://foobarnbaz.com/lab/pytt",
     zip_safe = True,
-    long_description = """Pytt is a simple BitTorrent tracker written using Tornado non-blocking web server. It also features a UI for showing tracker statistics.""",
+    classifiers=[
+        "Environment :: Web Environment",
+        "Intended Audience :: Developers",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python",
+        "Framework :: Tornado"
+        "License :: OSI Approved :: Apache Software License",
+        "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.3",
+        "Programming Language :: Python :: 3.4",
+    ],
+    long_description = """Pytt is a simple BitTorrent tracker written
+                        using Tornado non-blocking web server.
+                        It also features a UI for showing tracker statistics.""",
 )
