@@ -175,7 +175,7 @@ decode_func = {
 }
 
 
-if sys.version >= (3, 0):
+if sys.version_info >= (3, 0):
     encode_func[bytes] = encode_string
 
     def translate(value):
